@@ -1,0 +1,8 @@
+# Only sources needed by `npm run build` are uploaded; dist/ is rebuilt on Vercel.
+node_modules
+dist
+.vercel
+.env
+.env.*
+docs/screenshots
+start.bat

@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>CarbonTrace Pro · UI smoke test</title>
+<style>body{font:14px system-ui;margin:20px;background:#0b1016;color:#e7edf3}li.pass{color:#34c08f}li.fail{color:#ef5d5d}iframe{width:1400px;height:900px;border:1px solid #333;transform:scale(.5);transform-origin:0 0;margin-bottom:-450px}</style></head>
+<body>
+<h1>CarbonTrace Pro — UI smoke test</h1>
+<p>Serve the project folder (e.g. <code>python -m http.server 8090</code>) and open <code>/tests/ui-smoke.html</code>. Uses a clean browser state inside the iframe (your saved scenarios are backed up and restored).</p>
+<p id="sum">Running…</p><ol id="out"></ol>
+<iframe id="app" title="App under test"></iframe>
+<script>
+(async () => {
+  const out = document.getElementById('out'), results = [];
+  const ok = (name, cond, info) => { results.push(cond); const li = document.createElement('li'); li.className = cond ? 'pass' : 'fail'; li.textContent = (cond ? 'PASS ' : 'FAIL ') + name + (info ? ' — ' + info : ''); out.appendChild(li); };
+  const backup = localStorage.getItem('ctpro-state-v1'); localStorage.removeItem('ctpro-state-v1');
+  const frame = document.getElementById('app'); frame.src = '../index.html';
+  await new Promise(r => frame.onload = r); await new Promise(r => setTimeout(r, 300));
+  const w = frame.contentWindow, d = w.document, $ = id => d.getElementById(id), App = w.CTApp, CT = w.CT;
+  const fire = (el, v) => { el.value = String(v); el.dispatchEvent(new w.Event('input', { bubbles: true })); App.render(); };
+  const click = el => { el.click(); App.render(); };
+  try {
+    ok('App loaded and calculated', $('kCo2').textContent !== '—', $('kCo2').textContent);
+    const base = Number($('kCo2').textContent);
+    // Every schema input is applied to the model state
+    const nums = [...d.querySelectorAll('#inputSections input[type=number][data-path]')]; let applied = 0;
+    for (const el of nums) {
+      const f = CT.FIELDS.find(x => x.path === el.dataset.path), old = Number(el.value);
+      let nv = old === 0 ? Math.min(f.max, (f.smax || 1) / 4) : Math.min(f.max, Math.max(f.min, old * 1.1)); if (nv === old) nv = Math.max(f.min, old * 0.9);
+      fire(el, nv); if (Math.abs(CT.util.get(App.state().current, el.dataset.path) - nv) < 1e-9) applied++; fire(el, old);
+    }
+    ok(`All ${nums.length} numeric inputs update the scenario`, applied === nums.length, `${applied}/${nums.length}`);
+    ok('Restoring inputs restores the result', Number($('kCo2').textContent) === base);
+    fire(d.querySelector('input[type=range][data-share="ssScrap"]'), 80);
+    const sh = App.state().current.shares; ok('Share slider rebalances to 100%', Math.abs(sh.ssScrap + sh.csScrap + sh.pigIron - 100) < 1e-9 && sh.ssScrap === 80);
+    ok('More stainless scrap lowers CO2e', Number($('kCo2').textContent) < base, $('kCo2').textContent);
+    fire(d.querySelector('input[type=number][data-mix="solar"]'), 30);
+    const m = App.state().current.energy.mix; ok('Electricity mix rebalances', Math.abs(m.grid + m.captive + m.solar + m.wind - 100) < 1e-9 && m.solar === 30);
+    const ng = $('in-energy-ngGJ'); ng.value = '99'; ng.dispatchEvent(new w.Event('input', { bubbles: true }));
+    ok('Out-of-range input is rejected with a message', App.state().current.energy.ngGJ !== 99 && /Not applied/.test(ng.closest('.field').querySelector('.f-err').textContent));
+    click($('btnResetCurrent')); ok('Reset to baseline', Number($('kCo2').textContent) === base);
+    click(d.querySelector('[data-mode=manual]')); ok('Manual mode reproduces the auto charge', App.state().current.mode === 'manual' && Math.abs(Number($('kCo2').textContent) - base) < 0.002);
+    fire(d.querySelector('input[type=number][data-manual="feNi"]'), 0);
+    ok('Removing FeNi flags the Ni specification', /Ni .* outside/.test($('statusBar').innerText));
+    click($('btnToAuto'));
+    for (const g of ['316', '430', '304']) { click(d.querySelector(`[data-grade="${g}"]`)); ok(`Grade ${g} feasible at aim chemistry`, /FEASIBLE/i.test($('kStatus').innerText), $('kCo2').textContent); }
+    click(d.querySelector('[data-tab=optimize]')); $('btnOptimize').click(); await new Promise(r => setTimeout(r, 1500));
+    const o = App.lastOpt(); ok('Optimiser finds a feasible lower-CO2e recipe', o && o.best && o.bestResult.feasible && o.best.co2 < base, o && o.best ? o.best.co2.toFixed(3) + ' t/t, ' + o.feasible + '/' + o.evaluated + ' feasible' : 'none');
+    ok('Pareto frontier and scatter rendered', d.querySelectorAll('[data-pareto]').length > 2 && d.querySelectorAll('.sc-pt').length > 100);
+    click(d.querySelector('[data-apply=best]')); ok('Applying the recommendation updates current', Math.abs(Number($('kCo2').textContent) - o.best.co2) < 0.001);
+    click(d.querySelector('[data-tab=scenarios]')); $('scenarioName').value = 'Smoke test'; click($('btnSaveNamed'));
+    ok('Scenario saved and compared', d.querySelectorAll('.scen').length >= 4 && d.querySelectorAll('#chScenarios rect').length >= 6);
+    click(d.querySelector('[data-tab=sensitivity]')); ok('Tornado and sweep rendered', d.querySelectorAll('#chTornado rect.thi').length > 5 && d.querySelectorAll('#chSweepCo2 circle').length > 20);
+    click(d.querySelector('[data-tab=method]')); ok('Factor register and boundary rendered', d.querySelectorAll('#tblFactors tr').length > 15 && !!d.querySelector('#boundary svg'));
+    click(d.querySelector('[data-tab=dashboard]')); ok('Dashboard charts rendered', !!d.querySelector('#chEmissions svg') && !!d.querySelector('#chEnergy svg') && d.querySelectorAll('.chem-row').length === 7);
+  } catch (e) { ok('Unexpected error', false, e.message); }
+  finally { await new Promise(r => setTimeout(r, 600)); frame.src = 'about:blank'; if (backup) localStorage.setItem('ctpro-state-v1', backup); else localStorage.removeItem('ctpro-state-v1'); }
+  const pass = results.filter(Boolean).length;
+  document.getElementById('sum').textContent = `${pass}/${results.length} checks passed`;
+  document.title = `${pass}/${results.length} UI checks passed`;
+})();
+</script>
+</body></html>

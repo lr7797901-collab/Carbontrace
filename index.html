@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CarbonTrace Pro · Stainless Melt-Shop Carbon & Energy Calculator</title>
+<meta name="description" content="Grade-aware carbon and energy calculator with constrained optimisation for stainless steelmaking (EAF–AOD route).">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23f08a24'/%3E%3Cpath d='M8 21c3-8 6-8 8-3s5 5 8-3' stroke='%23fff' stroke-width='3' fill='none' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to results</a>
+<header class="topbar">
+  <div class="brand">
+    <svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8" class="brand-bg"/><path d="M7 21c3-8 6-8 9-3s5 5 9-3" class="brand-wave"/></svg>
+    <div><strong>CarbonTrace <span>Pro</span></strong><small>Stainless melt-shop carbon &amp; energy · EAF → AOD → LRF → CC</small></div>
+  </div>
+  <div class="grade-switch" role="radiogroup" aria-label="Steel grade">
+    <button type="button" role="radio" data-grade="304">304</button>
+    <button type="button" role="radio" data-grade="316">316</button>
+    <button type="button" role="radio" data-grade="430">430</button>
+  </div>
+  <div class="top-actions">
+    <button type="button" class="btn ghost" id="btnSetBaseline" title="Freeze the current inputs as the baseline for this grade">Set as baseline</button>
+    <button type="button" class="btn ghost" id="btnResetCurrent" title="Restore the current scenario from the baseline">Reset to baseline</button>
+    <button type="button" class="btn ghost" id="btnQuickSave" title="Save the current scenario">Save scenario</button>
+    <button type="button" class="btn icon" id="btnTheme" aria-label="Toggle light/dark theme" title="Toggle theme">◐</button>
+  </div>
+</header>
+
+<section class="kpis" aria-label="Key results">
+  <article class="kpi hero"><span>CO₂e intensity</span><b id="kCo2">—</b><small>t CO₂e / t slab</small><em id="kCo2d"></em></article>
+  <article class="kpi"><span>Site energy</span><b id="kEnergy">—</b><small>GJ / t slab</small><em id="kEnergyd"></em></article>
+  <article class="kpi"><span>Electricity</span><b id="kElec">—</b><small id="kElecSub">kWh / t slab</small><em id="kElecd"></em></article>
+  <article class="kpi"><span>Variable cost</span><b id="kCost">—</b><small>₹ / t slab</small><em id="kCostd"></em></article>
+  <article class="kpi"><span>Recycled metallic input</span><b id="kRecycled">—</b><small>% of metallic charge</small><em id="kRecycledd"></em></article>
+  <article class="kpi"><span>Grade &amp; constraints</span><b id="kStatus">—</b><small id="kStatusSub"></small><em id="kAnnual"></em></article>
+</section>
+<div id="statusBar" class="statusbar" role="status" aria-live="polite"></div>
+
+<div class="layout">
+  <aside class="inputs" id="inputs" aria-label="Inputs">
+    <div class="inputs-head">
+      <h2>Inputs</h2>
+      <span class="mode-pill" id="modePill">Auto-alloy solver</span>
+    </div>
+    <p class="hint">Every control recalculates instantly. Hover <i class="i-dot">i</i> for formulas &amp; sources. Badges: <span class="badge verified">Verified</span> <span class="badge public">Public</span> <span class="badge literature">LCA</span> <span class="badge synthetic">Synthetic</span></p>
+    <div id="inputSections"></div>
+  </aside>
+
+  <main id="main">
+    <nav class="tabs" role="tablist" aria-label="Views">
+      <button role="tab" data-tab="dashboard">Dashboard</button>
+      <button role="tab" data-tab="optimize">Optimizer</button>
+      <button role="tab" data-tab="scenarios">Scenarios</button>
+      <button role="tab" data-tab="sensitivity">Sensitivity</button>
+      <button role="tab" data-tab="method">Method &amp; data</button>
+    </nav>
+
+    <section class="tab" id="tab-dashboard" role="tabpanel">
+      <div class="grid g2">
+        <article class="card"><header><h3>Emissions breakdown</h3><div class="seg" id="emisView"><button data-v="category" class="on">By source</button><button data-v="scope">By scope</button></div></header>
+          <div id="chEmissions"></div><div id="chScopeBar" class="mt"></div></article>
+        <article class="card"><header><h3>Charge composition</h3><span class="muted" id="chargeMeta"></span></header>
+          <div id="chCharge"></div><div class="table-wrap mt"><table class="tbl" id="tblCharge"></table></div></article>
+      </div>
+      <div class="grid g2">
+        <article class="card"><header><h3>Liquid-steel chemistry vs specification</h3><span class="muted" id="chemMeta"></span></header><div id="chChem"></div></article>
+        <article class="card"><header><h3>Energy balance</h3><span class="muted" id="energyMeta"></span></header><div id="chEnergy"></div><div id="chPower" class="mt"></div></article>
+      </div>
+      <div class="grid g2">
+        <article class="card"><header><h3>Baseline vs current</h3><span class="muted" id="bvcMeta"></span></header><div id="chBvc"></div></article>
+        <article class="card"><header><h3>Where the change comes from</h3><span class="muted">t CO₂e / t slab, baseline → current</span></header><div id="chBvcWaterfall"></div></article>
+      </div>
+      <article class="card"><header><h3>Emission line items</h3><span class="muted">activity × factor = emissions; per tonne liquid steel</span></header>
+        <div class="table-wrap"><table class="tbl" id="tblLines"></table></div></article>
+    </section>
+
+    <section class="tab" id="tab-optimize" role="tabpanel" hidden>
+      <article class="card">
+        <header><h3>Constrained optimisation</h3><span class="muted">Exhaustive search of a declared design space · every point solved by the same engine</span></header>
+        <div class="opt-form">
+          <label>Objective<select id="optObjective"><option value="co2">Minimise CO₂e per tonne</option><option value="cost">Minimise variable cost</option><option value="costCarbon">Minimise cost incl. carbon price</option></select></label>
+          <label>Charge-mix grid<select id="optStep"><option value="10">10-point steps (fast)</option><option value="5">5-point steps</option><option value="2.5">2.5-point steps</option><option value="1">1-point steps (fine)</option></select></label>
+          <label>Max cost increase vs baseline<span class="inline"><input id="optCostCap" type="number" min="0" max="500" step="0.5" placeholder="no limit"><em>%</em></span></label>
+          <fieldset><legend>Levers the optimiser may change</legend>
+            <label class="chk"><input type="checkbox" id="levCharge"> Base-feed mix (SS / CS scrap / pig iron)</label>
+            <label class="chk"><input type="checkbox" id="levNickel"> Nickel source (FeNi ↔ cathode)</label>
+            <label class="chk"><input type="checkbox" id="levPower"> Electricity mix (within RE / captive limits)</label>
+          </fieldset>
+          <button class="btn primary big" id="btnOptimize" type="button">Run optimisation</button>
+        </div>
+        <p class="muted small">Always enforced: grade chemistry limits, residual Cu cap, material availability caps, max charge carbon, renewable and captive availability (edit under <em>Operating constraints</em>). Alloy additions are re-solved for every point.</p>
+      </article>
+      <div id="optResults"></div>
+    </section>
+
+    <section class="tab" id="tab-scenarios" role="tabpanel" hidden>
+      <article class="card"><header><h3>Scenario library</h3><span class="muted">Baseline, current and optimised are independent snapshots; saved scenarios persist in this browser</span></header>
+        <div class="save-row"><input id="scenarioName" maxlength="60" placeholder="Name this scenario, e.g. 'High scrap + 30% solar'"><button class="btn primary" id="btnSaveNamed" type="button">Save current</button>
+          <button class="btn ghost" id="btnExportJson" type="button">Export JSON</button><button class="btn ghost" id="btnExportCsv" type="button">Export CSV</button>
+          <label class="btn ghost file">Import JSON<input type="file" id="fileImport" accept="application/json,.json" hidden></label>
+          <button class="btn ghost" id="btnPrint" type="button">Print report</button>
+          <button class="btn danger" id="btnResetAll" type="button">Reset everything</button></div>
+        <div id="scenarioCards" class="scen-grid"></div>
+      </article>
+      <div class="grid g2">
+        <article class="card"><header><h3>Emissions by scope across scenarios</h3><span class="muted">t CO₂e / t slab</span></header><div id="chScenarios"></div></article>
+        <article class="card"><header><h3>Before / after waterfall</h3><label class="muted">Compare baseline with <select id="cmpTarget"></select></label></header><div id="chScenWaterfall"></div></article>
+      </div>
+      <article class="card"><header><h3>Scenario comparison table</h3></header><div class="table-wrap"><table class="tbl" id="tblScenarios"></table></div></article>
+    </section>
+
+    <section class="tab" id="tab-sensitivity" role="tabpanel" hidden>
+      <article class="card"><header><h3>Which assumptions matter most?</h3><label class="muted">Perturbation <select id="tornadoPct"><option value="10">±10%</option><option value="20" selected>±20%</option><option value="30">±30%</option></select></label></header>
+        <div id="chTornado"></div><p class="muted small">One parameter at a time, alloys re-solved, all else fixed. Hatched bars violate a constraint. These are scenario ranges, not statistical confidence intervals.</p></article>
+      <article class="card"><header><h3>Parameter sweep</h3><label class="muted">Sweep <select id="sweepKey"></select></label></header>
+        <div class="grid g2 tight"><div><h4>CO₂e intensity</h4><div id="chSweepCo2"></div></div><div><h4>Variable cost</h4><div id="chSweepCost"></div></div></div>
+        <p class="muted small">Red points break a chemistry, availability or power constraint — they are physically computed but not recommended.</p></article>
+    </section>
+
+    <section class="tab" id="tab-method" role="tabpanel" hidden>
+      <article class="card"><header><h3>System boundary</h3><span class="muted">Cradle-to-gate, functional unit = 1 t cast stainless slab</span></header><div id="boundary"></div></article>
+      <div class="grid g2">
+        <article class="card prose"><header><h3>Calculation method</h3></header><div id="methodText"></div></article>
+        <article class="card prose"><header><h3>Assumptions &amp; limitations</h3></header><div id="limitsText"></div></article>
+      </div>
+      <article class="card"><header><h3>Emission-factor register</h3><span class="muted">Current values (editable in the input panel) with status and source</span></header><div class="table-wrap"><table class="tbl" id="tblFactors"></table></div></article>
+    </section>
+  </main>
+</div>
+
+<footer class="foot">CarbonTrace Pro <span id="ver"></span> · Screening model for decision support. Synthetic defaults — not Jindal Stainless plant data. Replace with metered, assayed and supplier-verified values before reporting.</footer>
+<div id="tooltip" class="tooltip" hidden></div>
+<div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+<script src="src/data/factors.js"></script>
+<script src="src/data/materials.js"></script>
+<script src="src/data/defaults.js"></script>
+<script src="src/engine/model.js"></script>
+<script src="src/engine/optimizer.js"></script>
+<script src="src/engine/analysis.js"></script>
+<script src="src/ui/charts.js"></script>
+<script src="src/ui/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,15 @@
+{
+  "name": "carbontrace-pro",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Grade-aware carbon and energy calculator with constrained optimisation for stainless steelmaking (EAF-AOD route). Synthetic illustrative defaults - not Jindal Stainless plant data.",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "node --test tests/engine.test.js && node scripts/build.js",
+    "test": "node --test tests/engine.test.js",
+    "start": "python -m http.server 8090 --bind 127.0.0.1"
+  },
+  "license": "UNLICENSED"
+}
