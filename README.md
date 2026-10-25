@@ -4,7 +4,9 @@
 
 > All operating defaults are **synthetic and illustrative**. No value is Jindal Stainless plant data. Emission factors carry a status: Verified constant / Public reference / Industry LCA / Synthetic. Each has its source in the app (*Method & data* tab).
 
-## Start (no install, no build)
+**Live:** <https://carbontrace-pro.vercel.app/>. It is deployed on Vercel from GitHub `lr7797901-collab/Carbontrace` (`main`), and every push to `main` redeploys automatically. Vercel runs `npm run build`, which runs the engine tests and validates assets before publishing `dist/` (see `vercel.json`, `scripts/build.js`). No environment variables or secrets are used.
+
+## Start locally (no install, no build)
 
 Option A — double-click `start.bat`. It serves the folder with Python and opens the browser. If Python is missing, it opens `index.html` directly.
 

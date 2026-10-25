@@ -1,6 +1,6 @@
 # 3-minute jury demo — CarbonTrace Pro
 
-**Before the jury:** double-click `start.bat`, or open <http://127.0.0.1:8090/>. Go to *Scenarios → Reset everything* so the numbers match this script. Use full-screen (F11). The theme button (◐) switches to light mode for a bright projector.
+**Before the jury:** open <https://carbontrace-pro.vercel.app/>. Offline backup: double-click `start.bat`, or open `index.html`. Go to *Scenarios → Reset everything* so the numbers match this script. Use full-screen (F11). The theme button (◐) switches to light mode for a bright projector.
 
 All values below are reproducible from the synthetic defaults (grade 304).
 
