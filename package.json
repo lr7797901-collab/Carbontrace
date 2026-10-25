@@ -4,7 +4,7 @@
   "private": true,
   "description": "Grade-aware carbon and energy calculator with constrained optimisation for stainless steelmaking (EAF-AOD route). Synthetic illustrative defaults - not Jindal Stainless plant data.",
   "engines": {
-    "node": ">=18"
+    "node": "24.x"
   },
   "scripts": {
     "build": "node --test tests/engine.test.js && node scripts/build.js",
